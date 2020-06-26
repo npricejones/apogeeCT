@@ -4,6 +4,9 @@ a variety of input parameters.
 
 Natalie Price-Jones, UofT, 2020
 """
+import os
+import glob
+import h5py
 import numpy as np
 import matplotlib
 matplotlib.use('Agg')
@@ -12,6 +15,8 @@ from sklearn.cluster import DBSCAN
 from clustering_stats import membercount
 from sklearn.mixture import BayesianGaussianMixture
 from sklearn.metrics.pairwise import euclidean_distances
+from sklearn.metrics import silhouette_samples
+import pickle as pkl
 
 plt.rc('font', family='serif',size=18)
 
@@ -57,118 +62,118 @@ class DBSCAN_tagging(object):
             self.meanlist.append(np.mean(allStar[goodstars][key]))
             self.stdslist.append(np.std(allStar[goodstars][key]))
         return self.abundances
-
-    def independent_gaussian(self,allStar,goodstars):
-        """
-        Create a fake set of abundance data with each dimension independently
-        normally distributed with the mean and standard deviation of the
-        actual dataset.
-
-        allStar:        APOGEE allStar structured array.
-        goodstars:      Boolean array that is True for stars that should be
-                        used for chemical tagging.
-
-        Returns tagging array
-        """
-        self.abundances = self.realdata(allStar,goodstars)
-        for k,key in enumerate(self.elemkeys):
-            self.abundances[:,k] = np.random.normal(loc=self.meanlist[k],
-                                                    scale=self.stdlist[k],
-                                                    size=self.numstars)
-        return self.abundances
-
-    def multivariate_gaussian(self,allStar,goodstars):
-        """
-        Create a fake set of abundance data with each dimension normally
-        distributed with the mean and standard deviation of the
-        actual dataset.
-
-        allStar:        APOGEE allStar structured array.
-        goodstars:      Boolean array that is True for stars that should be
-                        used for chemical tagging.
-
-        Returns tagging array
-        """
-        self.abundances = self.realdata(allStar,goodstars)
-        covprops = np.cov(self.abundances.T)
-        self.abundances = np.random.multivariate_normal(self.meanlist,
-                                                        covprops,
-                                                        size=self.numstars)
-        return self.abundances
-
-    def gaussian_mixture_model(self,allStar,goodstars,n_components=3,
-                               max_iter=200,n_init=10,**kwargs):
-        """
-        Create a fake dataset using a Gaussian Mixture Model to mimic the
-        large-scale structure in abundance space.
-
-        allStar:        APOGEE allStar structured array.
-        goodstars:      Boolean array that is True for stars that should be
-                        used for chemical tagging.
-        n_components:   Number of components in chemical space, default: 3
-        max_iter:       Maximum iterations of the GMM, default: 200
-        n_init:         Number of initializations, default: 1
-        **kwargs:       Other sklearn.mixture kwargs
-
-        Returns tagging array
-        """
-        # Initialize Gaussian Mixture Model
-        bgmm = BayesianGaussianMixture(n_components=n_components,
-                                       covariance_type='full',
-                                       max_iter=max_iter,
-                                       n_init=n_init,**kwargs)
-        self.abundances = self.realdata(allStar,goodstars)
-        # Model the abundance data
-        model = bgmm.fit(self.abundances)
-        start = 0
-        # Use the independent components to construct actual abundances, with
-        # the number of abundances drawn from each component determined by
-        # the weight of that component
-        for n in range(n_components-1):
-            component_size = int(self.numstars*model.weights_[n])
-            component = np.random.multivariate_normal(model.means_[n],
-                                                      model.covariances_[n],
-                                                      size=component_size)
-            self.abundances[start:start+component_size]=component
-            start+=component_size
-        component_size = self.numstars-start
-        lastcomponent = np.random.multivariate_normal(model.means_[-1],
-                                                      model.covariances_[-1],
-                                                      size=component_size)
-        self.abundances[start:]=lastcomponent
-        return self.abundances
-
-    def simulated(self,fname=None,abunkey='labn',genfn='choosestruct',
-                  workdir='./'):
-        """
-        Create a simulated abundance space that mimics the properties of the
-        real abundance space.
-
-        fname:      hdf5 file where simulated abundances are stored. If
-                    unspecified, new data is generated.
-        abunkey:    Key in hdf5 file where abundance data is found.
-        genfn:      Function used to generate cluster centres in simulated data.
-        # TODO: FIX WORKDIR RELATIONSHIPS
-        """
-        if not isinstance(fname,str):
-            os.system(f'python3 makefake.py -n {self.numstars} -g {genfn} -w {workdir}')
-            # TODO: FIX hdf5 default naming
-            fs = glob.glob('{0}/case12*.hdf5'.format(workdir))
-            fname=fs[-1]
-        # Read in simulated data
-        fake = h5py.File(fname)
-        abun = np.array(fake[abunkey])
-        # Find appropriate columns in simulated data
-        simkeys = {'C':0,'N':1,'O':2,'NA':3,'MG':4,'AL':5,'SI':6,'S':7,'K':8,
-                   'CA':9,'TI':10,'V':11,'MN':12,'FE':13,'NI':14}
-        cols = [simkeys[i] for i in self.elems]
-        self.abundances = np.zeros((len(abun),self.numelems),dtype=float)
-        for k,key in enumerate(self.elemkeys):
-            self.abundances[:,k] = abun[:,cols[k]]
-            # Correct abundance ratios to be with respect to 'FE' instead of 'H'
-            if key != 'FE_H':
-                self.abundances[:,k]-=abun[:,simkeys['FE']]
-        return self.abundances
+#### UNFINISHED ####
+    # def independent_gaussian(self,allStar,goodstars):
+    #     """
+    #     Create a fake set of abundance data with each dimension independently
+    #     normally distributed with the mean and standard deviation of the
+    #     actual dataset.
+    #
+    #     allStar:        APOGEE allStar structured array.
+    #     goodstars:      Boolean array that is True for stars that should be
+    #                     used for chemical tagging.
+    #
+    #     Returns tagging array
+    #     """
+    #     self.abundances = self.realdata(allStar,goodstars)
+    #     for k,key in enumerate(self.elemkeys):
+    #         self.abundances[:,k] = np.random.normal(loc=self.meanlist[k],
+    #                                                 scale=self.stdlist[k],
+    #                                                 size=self.numstars)
+    #     return self.abundances
+    #
+    # def multivariate_gaussian(self,allStar,goodstars):
+    #     """
+    #     Create a fake set of abundance data with each dimension normally
+    #     distributed with the mean and standard deviation of the
+    #     actual dataset.
+    #
+    #     allStar:        APOGEE allStar structured array.
+    #     goodstars:      Boolean array that is True for stars that should be
+    #                     used for chemical tagging.
+    #
+    #     Returns tagging array
+    #     """
+    #     self.abundances = self.realdata(allStar,goodstars)
+    #     covprops = np.cov(self.abundances.T)
+    #     self.abundances = np.random.multivariate_normal(self.meanlist,
+    #                                                     covprops,
+    #                                                     size=self.numstars)
+    #     return self.abundances
+    #
+    # def gaussian_mixture_model(self,allStar,goodstars,n_components=3,
+    #                            max_iter=200,n_init=10,**kwargs):
+    #     """
+    #     Create a fake dataset using a Gaussian Mixture Model to mimic the
+    #     large-scale structure in abundance space.
+    #
+    #     allStar:        APOGEE allStar structured array.
+    #     goodstars:      Boolean array that is True for stars that should be
+    #                     used for chemical tagging.
+    #     n_components:   Number of components in chemical space, default: 3
+    #     max_iter:       Maximum iterations of the GMM, default: 200
+    #     n_init:         Number of initializations, default: 1
+    #     **kwargs:       Other sklearn.mixture kwargs
+    #
+    #     Returns tagging array
+    #     """
+    #     # Initialize Gaussian Mixture Model
+    #     bgmm = BayesianGaussianMixture(n_components=n_components,
+    #                                    covariance_type='full',
+    #                                    max_iter=max_iter,
+    #                                    n_init=n_init,**kwargs)
+    #     self.abundances = self.realdata(allStar,goodstars)
+    #     # Model the abundance data
+    #     model = bgmm.fit(self.abundances)
+    #     start = 0
+    #     # Use the independent components to construct actual abundances, with
+    #     # the number of abundances drawn from each component determined by
+    #     # the weight of that component
+    #     for n in range(n_components-1):
+    #         component_size = int(self.numstars*model.weights_[n])
+    #         component = np.random.multivariate_normal(model.means_[n],
+    #                                                   model.covariances_[n],
+    #                                                   size=component_size)
+    #         self.abundances[start:start+component_size]=component
+    #         start+=component_size
+    #     component_size = self.numstars-start
+    #     lastcomponent = np.random.multivariate_normal(model.means_[-1],
+    #                                                   model.covariances_[-1],
+    #                                                   size=component_size)
+    #     self.abundances[start:]=lastcomponent
+    #     return self.abundances
+    #
+    # def simulated(self,fname=None,abunkey='labn',genfn='choosestruct',
+    #               workdir='./'):
+    #     """
+    #     Create a simulated abundance space that mimics the properties of the
+    #     real abundance space.
+    #
+    #     fname:      hdf5 file where simulated abundances are stored. If
+    #                 unspecified, new data is generated.
+    #     abunkey:    Key in hdf5 file where abundance data is found.
+    #     genfn:      Function used to generate cluster centres in simulated data.
+    #     # TODO: FIX WORKDIR RELATIONSHIPS
+    #     """
+    #     if not isinstance(fname,str):
+    #         os.system(f'python3 makefake.py -n {self.numstars} -g {genfn} -w {workdir}')
+    #         # TODO: FIX hdf5 default naming
+    #         fs = glob.glob('{0}/case12*.hdf5'.format(workdir))
+    #         fname=fs[-1]
+    #     # Read in simulated data
+    #     fake = h5py.File(fname)
+    #     abun = np.array(fake[abunkey])
+    #     # Find appropriate columns in simulated data
+    #     simkeys = {'C':0,'N':1,'O':2,'NA':3,'MG':4,'AL':5,'SI':6,'S':7,'K':8,
+    #                'CA':9,'TI':10,'V':11,'MN':12,'FE':13,'NI':14}
+    #     cols = [simkeys[i] for i in self.elems]
+    #     self.abundances = np.zeros((len(abun),self.numelems),dtype=float)
+    #     for k,key in enumerate(self.elemkeys):
+    #         self.abundances[:,k] = abun[:,cols[k]]
+    #         # Correct abundance ratios to be with respect to 'FE' instead of 'H'
+    #         if key != 'FE_H':
+    #             self.abundances[:,k]-=abun[:,simkeys['FE']]
+    #     return self.abundances
 
     def typical_distance(self,N=1e4):
         """
@@ -229,6 +234,10 @@ class DBSCAN_tagging(object):
 
         Returns None
         """
+        pklfile = open('randstate.pkl','rb')
+        state = pkl.load(pklfile)
+        pklfile.close()
+        np.random.set_state(state)
         self.typical_distance()
         # DBSCAN label storage
         labellist = []
@@ -258,11 +267,11 @@ class DBSCAN_tagging(object):
             plt.figure(figsize=(8,6))
             ax = plt.subplot(111)
             ax.set_yscale('log')
-            im=plt.scatter(epsval,ncls,color=Nptsval,marker='o',label='total')
-            plt.scatter(epsval,nclsmin,color=Nptsval,marker='s',
+            im=plt.scatter(epsval,ncls,c=Nptsval,marker='o',label='total')
+            plt.scatter(epsval,nclsmin,c=Nptsval,marker='s',
                         label=f'>= {minsize} members')
             plt.colorbar(im,label='Npts')
-            plt.xlabel('scale factor')
+            plt.xlabel('epsilon')
             plt.ylabel('number of clusters')
             legend = plt.legend(loc='best')
             legend.get_frame().set_linewidth(0.0)
@@ -298,6 +307,7 @@ class DBSCAN_tagging(object):
         output['goodlabs']=goodlabs
         output['goodinds']=goodinds
         output['sils']=sils
-        output['props']=props
+        output['epsval']=epsval
+        output['Nptsval']=Nptsval
         output.close()
         return None
